@@ -10,7 +10,7 @@
     "module": "es2015",
     "declaration": true,
     "declarationMap": true,
-    "outDir": "./dist",
+    "outDir": "./docs",
     "composite": true,
     "allowJs": true,
     "esModuleInterop": true,
