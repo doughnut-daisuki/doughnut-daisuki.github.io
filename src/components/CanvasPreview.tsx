@@ -23,6 +23,7 @@ type ImageTransform = {
   width: number;
   height: number;
   aspectRatio: number;
+  scale: number;
 };
 
 const TEMPLATE_IMAGE_SRC = "/template.png"; // 適宜差し替え
@@ -40,6 +41,7 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
 
   const [imageTransform, setImageTransform] = useState<ImageTransform>({
     aspectRatio: 1,
+    scale: 1,
     height: 200,
     width: 200,
     x: 50,
@@ -48,6 +50,7 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
 
   const [dragging, setDragging] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const lastTouchDistance = useRef<number | null>(null);
 
   useEffect(() => {
     if (uploadedImage) {
@@ -60,6 +63,7 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
         width: defaultWidth,
         height: defaultWidth * ratio,
         aspectRatio: ratio,
+        scale:1,
       });
     }
   }, [uploadedImage]);
@@ -113,10 +117,11 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
 
       // 名前（文字数とバイト数でフォントサイズを計算）
       const strLengthRatio =
-      explorerData.name.length / getStringByteCount(explorerData.name);
+        explorerData.name.length / getStringByteCount(explorerData.name);
       console.log(strLengthRatio * explorerData.name.length);
       const fontSize =
-        Math.floor(160 / getStringByteCount(explorerData.name)) + explorerData.name.length;
+        Math.floor(160 / getStringByteCount(explorerData.name)) +
+        explorerData.name.length;
       const fontPx = fontSize > 42 ? 42 : fontSize;
       ctx.font = fontPx.toString() + "px Helvetica, Arial";
       ctx.fillText(`${explorerData.name}`, 460 + fontPx, 100);
@@ -235,6 +240,75 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
 
   const handleMouseUp = () => setDragging(false);
 
+ // ホイールズーム（PC用）
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 1.05 : 0.95;
+    setImageTransform((prev) => ({
+      ...prev,
+      scale: Math.max(0.1, prev.scale * delta),
+    }));
+  };
+
+  // タッチ（ドラッグ & ピンチズーム）
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && uploadedImage) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      const { x: imgX, y: imgY, scale } = imageTransform;
+      const w = uploadedImage.width * scale;
+      const h = uploadedImage.height * scale;
+      if (x >= imgX && x <= imgX + w && y >= imgY && y <= imgY + h) {
+        setDragging(true);
+        setOffset({ x: x - imgX, y: y - imgY });
+      }
+    } else if (e.touches.length === 2) {
+      const [t1, t2] = Array.from(e.touches);
+      const dist = Math.hypot(
+        t2.clientX - t1.clientX,
+        t2.clientY - t1.clientY
+      );
+      lastTouchDistance.current = dist;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && dragging) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      setImageTransform((prev) => ({
+        ...prev,
+        x: x - offset.x,
+        y: y - offset.y,
+      }));
+    } else if (e.touches.length === 2) {
+      const [t1, t2] = Array.from(e.touches);
+      const newDist = Math.hypot(
+        t2.clientX - t1.clientX,
+        t2.clientY - t1.clientY
+      );
+      if (lastTouchDistance.current) {
+        const delta = newDist / lastTouchDistance.current;
+        setImageTransform((prev) => ({
+          ...prev,
+          scale: Math.max(0.1, prev.scale * delta),
+        }));
+      }
+      lastTouchDistance.current = newDist;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setDragging(false);
+    lastTouchDistance.current = null;
+  };
+
   return (
     <div>
       <h2>画像プレビュー</h2>
@@ -246,7 +320,16 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        style={{ border: "1px solid #ccc", maxWidth: "100%", height: "auto" }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+        style={{
+          border: "1px solid #ccc",
+          maxWidth: "100%",
+          height: "auto",
+          touchAction: "none",
+        }}
       />
 
       {uploadedImage && (
