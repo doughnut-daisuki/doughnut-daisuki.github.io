@@ -40,6 +40,7 @@ export const GENERAL_SKILL_OPTIONS = [
   "説得",
   "値切り",
   "母国語",
+  "言語",
   "医学",
   "オカルト",
   "化学",

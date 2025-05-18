@@ -3,7 +3,7 @@ import React from "react";
 type Props = {
   label: string;
   name: string;
-  value: string;
+  value: string | number;
   type: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 };
@@ -16,8 +16,7 @@ const FormField: React.FC<Props> = ({ label, type, name, value, onChange }) => {
         type={type}
         name={name}
         value={value}
-        max={99}
-        maxLength={99}
+        maxLength={10}
         onChange={onChange}
         style={{ marginLeft: "0.5rem" }}
       />

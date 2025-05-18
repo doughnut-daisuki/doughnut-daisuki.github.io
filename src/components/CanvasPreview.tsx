@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { ExplorerData } from "./types/types";
-import {
-  calculateDamageBonus,
-  getStringByteCount,
-} from "../util/skillCalculation";
+import { calculateDamageBonus } from "../util/skillCalculation";
 
 export interface CharacterData {
   name: string;
@@ -44,8 +41,8 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
     scale: 1,
     height: 200,
     width: 200,
-    x: 50,
-    y: 50,
+    x: 10,
+    y: 10,
   });
 
   const [dragging, setDragging] = useState(false);
@@ -63,7 +60,7 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
         width: defaultWidth,
         height: defaultWidth * ratio,
         aspectRatio: ratio,
-        scale:1,
+        scale: 1,
       });
     }
   }, [uploadedImage]);
@@ -112,19 +109,24 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
         );
       }
 
-      ctx.font = "42px Helvetica, Arial";
       ctx.fillStyle = "black";
 
       // 名前（文字数とバイト数でフォントサイズを計算）
-      const strLengthRatio =
-        explorerData.name.length / getStringByteCount(explorerData.name);
-      console.log(strLengthRatio * explorerData.name.length);
+      // const strLengthRatio =
+      //   explorerData.name.length / getStringByteCount(explorerData.name);
+      // console.log(strLengthRatio * explorerData.name.length);
       const fontSize =
-        Math.floor(160 / getStringByteCount(explorerData.name)) +
-        explorerData.name.length;
+        Math.round(160 / explorerData.name.length) + explorerData.name.length;
       const fontPx = fontSize > 42 ? 42 : fontSize;
       ctx.font = fontPx.toString() + "px Helvetica, Arial";
-      ctx.fillText(`${explorerData.name}`, 460 + fontPx, 100);
+      ctx.fillText(`${explorerData.name}`, 460 + fontPx, 110);
+
+      // 年齢
+      ctx.font = "50px Helvetica, Arial";
+      ctx.fillText(`${explorerData.age}`, 830, 110);
+      // 職業
+      ctx.font = "42px Helvetica, Arial";
+      ctx.fillText(`${explorerData.job}`, 950 + fontPx, 110);
 
       // 各ステータスの計算+描画
       statusKeys.forEach((key, index) => {
@@ -154,7 +156,7 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
           ctx.fillText(`${pow}`, x, y);
         } else if (key === "db") {
           const db = calculateDamageBonus(str, siz);
-          // DBは文字数が多いのでフォントを小さくする
+          // DBは文字数が多いのでフォントサイズを小さくする
           ctx.font = "36px Helvetica, Arial";
           ctx.fillText(`${db}`, x - 10, y);
         } else {
@@ -181,11 +183,20 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
         const xCount = index < 3 ? index : index % 3;
         const x = startX + xCount * lineWidth;
         const y = startY + Math.floor(index / 3) * lineHeight;
-        const label = skill.category
-          ? `${skill.category}${skill.name}`
+        const label = skill.nameText
+          ? `${skill.name}（${skill.nameText}）`
           : skill.name;
-        ctx.font = "24px Helvetica, Arial";
-        ctx.fillText(`${label} ${skill.value}`, x, y);
+        if (label.length < 7) {
+          ctx.font = "24px Helvetica, Arial";
+          ctx.fillText(`${label}`, x, y);
+          ctx.font = "40px Helvetica, Arial";
+          ctx.fillText(`${skill.value}`, x + 130, y + 5);
+        } else {
+          ctx.font = "18px Helvetica, Arial";
+          ctx.fillText(`${label}`, x, y);
+          ctx.font = "40px Helvetica, Arial";
+          ctx.fillText(`${skill.value}`, x + 150, y + 5);
+        }
       });
     };
   }, [explorerData, imageTransform, uploadedImage]);
@@ -240,7 +251,7 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
 
   const handleMouseUp = () => setDragging(false);
 
- // ホイールズーム（PC用）
+  // ホイールズーム（PC用）
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY < 0 ? 1.05 : 0.95;
@@ -267,10 +278,7 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
       }
     } else if (e.touches.length === 2) {
       const [t1, t2] = Array.from(e.touches);
-      const dist = Math.hypot(
-        t2.clientX - t1.clientX,
-        t2.clientY - t1.clientY
-      );
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
       lastTouchDistance.current = dist;
     }
   };
