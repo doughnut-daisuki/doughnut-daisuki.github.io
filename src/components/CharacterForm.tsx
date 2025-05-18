@@ -63,11 +63,15 @@ const CharacterForm: React.FC<Props> = ({ data, onChange }) => {
   const handleSkillChange = (
     index: number,
     field: keyof Skill,
-    value: string | null
+    value: string | null,
+    fieldText?: string
   ) => {
     const updatedSkills = [...formData.skills];
-    console.log(updatedSkills);
-    updatedSkills[index] = { ...updatedSkills[index], [field]: value };
+    updatedSkills[index] = {
+      ...updatedSkills[index],
+      [field]: value,
+      nameText: fieldText,
+    };
     setFormData({ ...formData, skills: updatedSkills });
   };
 
@@ -106,6 +110,7 @@ const CharacterForm: React.FC<Props> = ({ data, onChange }) => {
     <form>
       {/* 基本ステータス */}
       <h3>プロフィール</h3>
+      <p>※名前は全角2~8文字くらいが推奨です</p>
       <FormField
         key={"name"}
         label={"名前"}
@@ -145,18 +150,13 @@ const CharacterForm: React.FC<Props> = ({ data, onChange }) => {
           >
             {/* 技能セレクト */}
             <select
-              value={
-                skill.category === "言語" && skill.name === ""
-                  ? CUSTOM_LANGUAGE_KEY
-                  : currentKey
-              }
+              value={skill.name}
               onChange={(e) => {
                 const selected = e.target.value;
 
                 if (selected === CUSTOM_LANGUAGE_KEY) {
                   handleSkillChange(index, "category", "言語");
                   handleSkillChange(index, "name", "");
-                  console.log(skill.category);
                 } else {
                   handleSkillChange(index, "category", null);
                   handleSkillChange(index, "name", selected);

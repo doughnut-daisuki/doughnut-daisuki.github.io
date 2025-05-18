@@ -1,6 +1,7 @@
 export type Skill = {
   category?: string | null;
   name: string;
+  nameText?: string | null;
   value: number;
 };
 

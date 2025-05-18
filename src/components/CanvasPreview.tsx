@@ -1,18 +1,68 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { ExplorerData } from "./types/types";
+import {
+  calculateDamageBonus,
+  getStringByteCount,
+} from "../util/skillCalculation";
 
-type Props = {
+export interface CharacterData {
+  name: string;
+  age: string;
+  job: string;
+  skills: { name: string; value: string; category?: string | null }[];
+}
+
+interface CanvasPreviewProps {
   explorerData: ExplorerData;
+  uploadedImage: HTMLImageElement | null;
+}
+
+type ImageTransform = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  aspectRatio: number;
 };
 
-const HORIZONTAL_REFERENCE = 520;
+const TEMPLATE_IMAGE_SRC = "/template.png"; // 適宜差し替え
+
+const HORIZONTAL_REFERENCE = 525;
 const VERTICAL_REFERENCE = 204;
 const HORIZONTAL_ADDITION = 145;
 const VERTICAL_ADDITION = 62;
 
-const CanvasPreview: React.FC<Props> = ({ explorerData }) => {
+const CanvasPreview: React.FC<CanvasPreviewProps> = ({
+  explorerData,
+  uploadedImage,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const templateSrc = "/template.png";
+
+  const [imageTransform, setImageTransform] = useState<ImageTransform>({
+    aspectRatio: 1,
+    height: 200,
+    width: 200,
+    x: 50,
+    y: 50,
+  });
+
+  const [dragging, setDragging] = useState(false);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (uploadedImage) {
+      const ratio = uploadedImage.naturalHeight / uploadedImage.naturalWidth;
+      const defaultWidth = 500;
+
+      setImageTransform({
+        x: 100,
+        y: 100,
+        width: defaultWidth,
+        height: defaultWidth * ratio,
+        aspectRatio: ratio,
+      });
+    }
+  }, [uploadedImage]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -21,73 +71,119 @@ const CanvasPreview: React.FC<Props> = ({ explorerData }) => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const image = new Image();
-    image.src = templateSrc;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    image.onload = () => {
+    const template = new Image();
+    template.src = TEMPLATE_IMAGE_SRC;
+    const statusKeys = [
+      "str",
+      "con",
+      "pow",
+      "dex",
+      "app",
+      "siz",
+      "int",
+      "edu",
+      "san",
+      "luck",
+      "knowledge",
+      "idea",
+      "hp",
+      "mp",
+      "db",
+    ];
+    template.onload = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(template, 0, 0, canvas.width, canvas.height);
+
+      // ユーザーアップロード画像の描画（例：x=400, y=40, 幅=100, 高さ=100）
+      // アップロード画像の描画
+      if (uploadedImage) {
+        ctx.drawImage(
+          uploadedImage,
+          imageTransform.x,
+          imageTransform.y,
+          imageTransform.width,
+          imageTransform.height
+        );
+      }
 
       ctx.font = "42px Helvetica, Arial";
       ctx.fillStyle = "black";
 
-      ctx.fillText(`名前: ${explorerData.name}`, 30, 80);
-      ctx.fillText(
-        `${explorerData.characterStatusData.str}`,
-        HORIZONTAL_REFERENCE,
-        VERTICAL_REFERENCE
-      );
-      ctx.fillText(
-        `${explorerData.characterStatusData.con}`,
-        HORIZONTAL_REFERENCE + HORIZONTAL_ADDITION,
-        VERTICAL_REFERENCE
-      );
-      ctx.fillText(
-        `${explorerData.characterStatusData.pow}`,
-        HORIZONTAL_REFERENCE + HORIZONTAL_ADDITION * 2,
-        VERTICAL_REFERENCE
-      );
-      ctx.fillText(
-        `${explorerData.characterStatusData.dex}`,
-        HORIZONTAL_REFERENCE + HORIZONTAL_ADDITION * 3,
-        VERTICAL_REFERENCE
-      );
-      ctx.fillText(
-        `${explorerData.characterStatusData.app}`,
-        HORIZONTAL_REFERENCE + HORIZONTAL_ADDITION * 4,
-        VERTICAL_REFERENCE
-      );
+      // 名前（文字数とバイト数でフォントサイズを計算）
+      const strLengthRatio =
+      explorerData.name.length / getStringByteCount(explorerData.name);
+      console.log(strLengthRatio * explorerData.name.length);
+      const fontSize =
+        Math.floor(160 / getStringByteCount(explorerData.name)) + explorerData.name.length;
+      const fontPx = fontSize > 42 ? 42 : fontSize;
+      ctx.font = fontPx.toString() + "px Helvetica, Arial";
+      ctx.fillText(`${explorerData.name}`, 460 + fontPx, 100);
 
-      ctx.fillText(
-        `${explorerData.characterStatusData.siz}`,
-        HORIZONTAL_REFERENCE,
-        VERTICAL_REFERENCE + VERTICAL_ADDITION
-      );
-      ctx.fillText(
-        `${explorerData.characterStatusData.int}`,
-        HORIZONTAL_REFERENCE + HORIZONTAL_ADDITION,
-        VERTICAL_REFERENCE + VERTICAL_ADDITION
-      );
-      ctx.fillText(
-        `${explorerData.characterStatusData.edu}`,
-        HORIZONTAL_REFERENCE + HORIZONTAL_ADDITION * 2,
-        VERTICAL_REFERENCE + VERTICAL_ADDITION
-      );
+      // 各ステータスの計算+描画
+      statusKeys.forEach((key, index) => {
+        const row = Math.floor(index / 5); // 1行目: 0〜4, 2行目: 5〜
+        const col = index % 5;
+
+        const x = HORIZONTAL_REFERENCE + HORIZONTAL_ADDITION * col;
+        const y = VERTICAL_REFERENCE + VERTICAL_ADDITION * row;
+
+        const pow = Number(explorerData.characterStatusData["pow"]);
+        const edu = Number(explorerData.characterStatusData["edu"]);
+        const int = Number(explorerData.characterStatusData["int"]);
+        const str = Number(explorerData.characterStatusData["str"]);
+        const siz = Number(explorerData.characterStatusData["siz"]);
+        const con = Number(explorerData.characterStatusData["con"]);
+        ctx.font = "42px Helvetica, Arial";
+
+        if (key === "san" || key === "luck") {
+          ctx.fillText(`${pow * 5}`, x, y);
+        } else if (key === "knowledge") {
+          ctx.fillText(`${edu * 5}`, x, y);
+        } else if (key === "idea") {
+          ctx.fillText(`${int * 5}`, x, y);
+        } else if (key === "hp") {
+          ctx.fillText(`${Math.round((siz + con) / 2)}`, x, y);
+        } else if (key === "mp") {
+          ctx.fillText(`${pow}`, x, y);
+        } else if (key === "db") {
+          const db = calculateDamageBonus(str, siz);
+          // DBは文字数が多いのでフォントを小さくする
+          ctx.font = "36px Helvetica, Arial";
+          ctx.fillText(`${db}`, x - 10, y);
+        } else {
+          ctx.font = "42px Helvetica, Arial";
+          ctx.fillText(
+            `${
+              explorerData.characterStatusData[
+                key as keyof typeof explorerData.characterStatusData
+              ]
+            }`,
+            x,
+            y
+          );
+        }
+      });
 
       // 技能を動的に描画
-      const startX = 400;
-      const startY = 100;
-      const lineHeight = 30;
+      const startX = 470;
+      const startY = 465;
+      const lineHeight = 65;
+      const lineWidth = 240;
 
       explorerData.skills.forEach((skill, index) => {
-        const y = startY + index * lineHeight;
+        const xCount = index < 3 ? index : index % 3;
+        const x = startX + xCount * lineWidth;
+        const y = startY + Math.floor(index / 3) * lineHeight;
         const label = skill.category
-          ? `${skill.category}：${skill.name}`
+          ? `${skill.category}${skill.name}`
           : skill.name;
-        ctx.fillText(`${label}: ${skill.value}`, startX, y);
+        ctx.font = "24px Helvetica, Arial";
+        ctx.fillText(`${label} ${skill.value}`, x, y);
       });
     };
-  }, [explorerData]);
+  }, [explorerData, imageTransform, uploadedImage]);
 
   const handleSave = () => {
     const canvas = canvasRef.current;
@@ -105,6 +201,40 @@ const CanvasPreview: React.FC<Props> = ({ explorerData }) => {
     }, "image/png");
   };
 
+  // マウス操作
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const { x, y, width } = imageTransform;
+    if (
+      mouseX >= x &&
+      mouseX <= x + width &&
+      mouseY >= y &&
+      mouseY <= y + width
+    ) {
+      setDragging(true);
+      setOffset({ x: mouseX - x, y: mouseY - y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragging || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    setImageTransform((prev) => ({
+      ...prev,
+      x: mouseX - offset.x,
+      y: mouseY - offset.y,
+    }));
+  };
+
+  const handleMouseUp = () => setDragging(false);
+
   return (
     <div>
       <h2>画像プレビュー</h2>
@@ -112,13 +242,41 @@ const CanvasPreview: React.FC<Props> = ({ explorerData }) => {
         ref={canvasRef}
         width={1200}
         height={1053}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         style={{ border: "1px solid #ccc", maxWidth: "100%", height: "auto" }}
       />
+
+      {uploadedImage && (
+        <div className="mt-2">
+          <label>
+            画像サイズ:
+            <input
+              type="range"
+              min={200}
+              max={500}
+              value={imageTransform.width}
+              onChange={(e) => {
+                const newWidth = Number(e.target.value);
+                setImageTransform((prev) => ({
+                  ...prev,
+                  width: newWidth,
+                  height: newWidth * prev.aspectRatio,
+                }));
+              }}
+            />
+          </label>
+          ※微調整しかできません
+        </div>
+      )}
+
       <button onClick={handleSave} style={{ marginTop: "1rem" }}>
         画像として保存
       </button>
       <p style={{ fontSize: "0.9rem", color: "#555", marginTop: "0.5rem" }}>
-        ※ スマホの場合は画像を長押しして保存してください
+        ※ボタンが動作しない場合は画像を長押ししてみてください
       </p>
     </div>
   );
